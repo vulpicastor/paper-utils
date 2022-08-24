@@ -16,6 +16,7 @@ class AuthorList:
         self.author_dict = {}
         self.affil_dict = {}
         self.notes_dict = {}
+        self.orcid_dict = {}
         # By convention, affiliations are 1-indexed.
         self.affil_index = 1
 
@@ -23,7 +24,7 @@ class AuthorList:
     def _normalize(s):
         return unicodedata.normalize('NFKC', s.strip())
 
-    def add_author_entry(self, name, affiliations, notes=None, orcid=None):
+    def add_author_entry(self, name, affiliations, notes=None, orcid_id=None):
         normalized_name = self._normalize(name)
         if normalized_name in self.author_dict:
             raise ValueError(f'Duplicate author name "{normalized_name}"')
@@ -41,6 +42,8 @@ class AuthorList:
         self.author_dict[normalized_name] = affil_indices
         if notes:
             self.notes_dict[normalized_name] = notes
+        if orcid_id:
+            self.orcid_dict[normalized_name] = orcid_id
 
     @staticmethod
     def texify_author_name(name):
@@ -51,11 +54,18 @@ class AuthorList:
     def texify_affiliation_entry(notemark, affiliation):
         return f'$^{{{notemark}}}${affiliation} \\\\'
 
-    def format_author_list(self):
+    def format_author_list(self, with_orcid=False, orcid_logo=None):
         lines = []
         last_author = len(self.author_dict) - 1
         for i, (author, indices) in enumerate(self.author_dict.items()):
             latex_author = self.texify_author_name(author)
+            if with_orcid and author in self.orcid_dict:
+                orcid_id = self.orcid_dict[author]
+                latex_author += ('%\n\\textsuperscript{'
+                                 f'\href{{https://orcid.org/{orcid_id}}}'
+                                 '{\\includegraphics[width=2.5mm]'
+                                 f'{{{orcid_logo}}}'
+                                 '}}%\n')
             latex_affils = '\\textsuperscript{{{}}}'.format(','.join(map(str, indices)))
             if author in self.notes_dict:
                 author_notes = '\n'.join(
@@ -74,8 +84,8 @@ class AuthorList:
         return [self.texify_affiliation_entry(str(i), affil)
                 for affil, i in self.affil_dict.items()]
 
-    def output_latex(self):
-        author_lines = self.format_author_list()
+    def output_latex(self, with_orcid=False, orcid_logo=None):
+        author_lines = self.format_author_list(with_orcid=with_orcid, orcid_logo=orcid_logo)
         affil_lines = self.format_affiliation_list()
         latex_macro = '\n'.join(itertools.chain(author_lines, affil_lines))
         return latex_macro
@@ -106,6 +116,8 @@ def read_csv(f, args):
                 note_list.append(note)
         if note_list:
             author_entry['notes'] = note_list
+        if orcid_id := row[columns['orcid']].strip():
+            author_entry['orcid_id'] = orcid_id
         author_entries.append(author_entry)
     return author_entries
 
@@ -116,11 +128,17 @@ def parse_args():
         description='Generate MNRAS-style author list from CSV.',
         prog='mkauthor_mnras.py')
     parser.add_argument(
-        '--max-affil', type=int, default=4,
+        '--max-affil', type=int, default=4, metavar='N',
         help='Maximum number of columns for affiliations in the CSV file.')
     parser.add_argument(
-        '--max-note', type=int, default=1,
+        '--max-note', type=int, default=1, metavar='N',
         help='Maximum number of columns for author notes in the CSV file.')
+    parser.add_argument(
+        '--with-orcid', action='store_true',
+        help='Output ORCID iDs.')
+    parser.add_argument(
+        '--orcid-logo', default='orcid-ID.png', metavar='FILE', required=False,
+        help='Filename of the ORCID iD logo.')
     return parser.parse_args()
 
 
@@ -131,7 +149,9 @@ def main():
     author_list = AuthorList()
     for entry in author_entries:
         author_list.add_author_entry(**entry)
-    print(author_list.output_latex())
+    print(author_list.output_latex(
+        with_orcid=args.with_orcid,
+        orcid_logo=args.orcid_logo))
 
 
 
