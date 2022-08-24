@@ -51,10 +51,16 @@ class AuthorList:
 
     def format_author_list(self):
         lines = []
-        for author, indices in self.author_dict.items():
+        last_author = len(self.author_dict) - 1
+        for i, (author, indices) in enumerate(self.author_dict.items()):
             latex_author = self.texify_author_name(author)
             latex_affils = ','.join(map(str, indices))
-            lines.append(f'{latex_author},\\textsuperscript{{{latex_affils}}}')
+            if i < last_author - 1:
+                lines.append(f'{latex_author},\\textsuperscript{{{latex_affils}}}')
+            else:
+                lines.append(f'{latex_author}\\thinspace\\textsuperscript{{{latex_affils}}}')
+                if i < last_author:
+                    lines.append('and')
         lines.append(r'\\')
         return lines
 
