@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
+import argparse
+import csv
 import itertools
 import logging
+import sys
 import unicodedata
 
 logger = logging.getLogger()
@@ -67,5 +70,58 @@ class AuthorList:
 
 
 
-def read_csv(fn, skip_rows=0):
-    pass
+def read_csv(f, args):
+    header = f.readline()
+    columns = {c.lower(): i for i, c in enumerate(header.strip().split(','))}
+    reader = csv.reader(sys.stdin)
+    author_entries = []
+    for row in reader:
+        author_entry = {}
+        if author_name := row[columns['name']].strip():
+            author_entry['name'] = author_name
+        else:
+            continue
+        affil_list = []
+        for i in range(args.max_affil):
+            affil_col = 'affiliation {}'.format(i + 1)
+            if affil := row[columns[affil_col]].strip():
+                affil_list.append(affil)
+        author_entry['affiliations'] = affil_list
+        note_list = []
+        for i in range(args.max_note):
+            note_col = 'note {}'.format(i + 1)
+            if note := row[columns[note_col]].strip():
+                note_list.append(note)
+        if note_list:
+            author_entry['notes'] = note_list
+        author_entries.append(author_entry)
+    return author_entries
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Generate MNRAS-style author list from CSV.',
+        prog='mkauthor_mnras.py')
+    parser.add_argument(
+        '--max-affil', type=int, default=4,
+        help='Maximum number of columns for affiliations in the CSV file.')
+    parser.add_argument(
+        '--max-note', type=int, default=1,
+        help='Maximum number of columns for author notes in the CSV file.')
+    return parser.parse_args()
+
+
+
+def main():
+    args = parse_args()
+    author_entries = read_csv(sys.stdin, args)
+    author_list = AuthorList()
+    for entry in author_entries:
+        author_list.add_author_entry(**entry)
+    print(author_list.output_latex())
+
+
+
+if __name__ == '__main__':
+    main()
