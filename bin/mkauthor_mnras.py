@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import itertools
 import logging
 import unicodedata
 
@@ -43,14 +44,15 @@ class AuthorList:
 
     @staticmethod
     def texify_affiliation_entry(notemark, affiliation):
-        return f'\\textsuperscript{{notemark}}{affiliation} \\\\'
+        return f'$^{{{notemark}}}${affiliation} \\\\'
 
     def format_author_list(self):
         lines = []
         for author, indices in self.author_dict.items():
             latex_author = self.texify_author_name(author)
             latex_affils = ','.join(map(str, indices))
-            lines.append(f'{latex_author}\\textsuperscript{{latex_affils}}')
+            lines.append(f'{latex_author},\\textsuperscript{{{latex_affils}}}')
+        lines.append(r'\\')
         return lines
 
     def format_affiliation_list(self):
@@ -60,10 +62,7 @@ class AuthorList:
     def output_latex(self):
         author_lines = self.format_author_list()
         affil_lines = self.format_affiliation_list()
-        latex_macro = "{} \\\\\n{}".format(
-            ',\n'.join(author_lines),
-            '\\\\\n'.join(affil_lines),
-        )
+        latex_macro = '\n'.join(itertools.chain(author_lines, affil_lines))
         return latex_macro
 
 
