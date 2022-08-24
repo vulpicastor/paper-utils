@@ -23,7 +23,7 @@ class AuthorList:
     def _normalize(s):
         return unicodedata.normalize('NFKC', s.strip())
 
-    def add_author_entry(self, name, affiliations, notes=None):
+    def add_author_entry(self, name, affiliations, notes=None, orcid=None):
         normalized_name = self._normalize(name)
         if normalized_name in self.author_dict:
             raise ValueError(f'Duplicate author name "{normalized_name}"')
@@ -39,6 +39,8 @@ class AuthorList:
                 affil_indices.append(self.affil_index)
                 self.affil_index += 1
         self.author_dict[normalized_name] = affil_indices
+        if notes:
+            self.notes_dict[normalized_name] = notes
 
     @staticmethod
     def texify_author_name(name):
@@ -54,11 +56,15 @@ class AuthorList:
         last_author = len(self.author_dict) - 1
         for i, (author, indices) in enumerate(self.author_dict.items()):
             latex_author = self.texify_author_name(author)
-            latex_affils = ','.join(map(str, indices))
+            latex_affils = '\\textsuperscript{{{}}}'.format(','.join(map(str, indices)))
+            if author in self.notes_dict:
+                author_notes = '\n'.join(
+                    '\\thanks{{{}}}'.format(n) for n in self.notes_dict[author])
+                latex_affils = '{}%\n{}'.format(latex_affils, author_notes)
             if i < last_author - 1:
-                lines.append(f'{latex_author},\\textsuperscript{{{latex_affils}}}')
+                lines.append(f'{latex_author},{latex_affils}')
             else:
-                lines.append(f'{latex_author}\\thinspace\\textsuperscript{{{latex_affils}}}')
+                lines.append(f'{latex_author}\\thinspace{latex_affils}')
                 if i < last_author:
                     lines.append('and')
         lines.append(r'\\')
